@@ -1,0 +1,15 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="StringHelper_lib">
+      <HintPath>..\..\StringHelper_lib\StringHelper_lib\bin\Release\net10.0\StringHelper_lib.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+</Project>
