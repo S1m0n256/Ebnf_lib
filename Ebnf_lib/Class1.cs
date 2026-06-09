@@ -1,6 +1,5 @@
 ﻿using System.Diagnostics;
 using System.Globalization;
-using System.Numerics;
 using StringHelper_lib;
 
 namespace Ebnf_lib
