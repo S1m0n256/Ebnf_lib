@@ -340,7 +340,7 @@ namespace Ebnf_lib
             public static Expression Expression { get; } = new Expression(EbnfParser.Variables["expr"].Parse);
             private static Parser CreateEbnfParser()
             {
-                var parser = new Parser();
+                var parser = new Parser("main");
 
                 parser.AddExpression("name", Expression.VariableName);
                 parser.AddSuccessProcess("name", new SuccessProcess((result, cursor) =>
@@ -382,14 +382,14 @@ namespace Ebnf_lib
                 }));
                 //data = List<object?>
 
-                //- arguments ::= '(' ( s* csl(expr) s* )? ')'
+                //arguments ::= '(' ( s* csl(expr) s* )? ')'
                 parser.AddExpression("arguments", new Expression.Sequence(
                     new Expression.TerminalChar('('),
                     Expression.Repetition.Optional(new Expression.Sequence(Expression.WhiteSpaceStar,
                         new Expression.Application(new Expression.VariableReference("csl"),
                             new Expression.VariableReference("expr")),
                         Expression.WhiteSpaceStar)), new Expression.TerminalChar(')')));
-                //- arguments ::= '(' ( s* csl(expr) s* )? ')'
+                //arguments ::= '(' ( s* csl(expr) s* )? ')'
                 parser.AddSuccessProcess("arguments", new SuccessProcess((result, cursor) =>
                 {
                     // '(' ( s* csl(expr1) s* )? ')'
@@ -408,7 +408,7 @@ namespace Ebnf_lib
                 }));
                 //data = Expression[]
 
-                //- parameters ::= '(' ( s* csl(name) s* ( '=' s* expr s* ( ',' s* name s* '=' s* expr s* )* )? )? ')'
+                //parameters ::= '(' ( s* csl(name) s* ( '=' s* expr s* ( ',' s* name s* '=' s* expr s* )* )? )? ')'
                 parser.AddExpression("parameters", new Expression.Sequence(
                     // '(' ( s* csl(name) s* ( '=' s* expr s* ( ',' s* name s* '=' s* expr s* )* )? )? ')'
                     new Expression.TerminalChar('('),
@@ -480,8 +480,8 @@ namespace Ebnf_lib
                     ),
                     new Expression.TerminalChar(')')
                 ));
-                //- parameters ::= '(' ( s* csl(name) s* ( '=' s* expr s* ( ',' s* name s* '=' s* expr s* )* )? )? ')'
-                //- parameters ::= '(' ( (string[] paramNames, Expression[] paramExprs) )? ')'
+                //parameters ::= '(' ( s* csl(name) s* ( '=' s* expr s* ( ',' s* name s* '=' s* expr s* )* )? )? ')'
+                //parameters ::= '(' ( (string[] paramNames, Expression[] paramExprs) )? ')'
                 parser.AddSuccessProcess("parameters", new SuccessProcess((result, cursor) =>
                 {
                     // '(' ( (string[] paramNames, Expression[] paramExprs) )? ')'
@@ -499,25 +499,24 @@ namespace Ebnf_lib
                 //data = (string[] paramNames, Expression[] paramExprs)
 
 
-                //- definition ::= '-' s* name parameters? extension* s* "::=" s* expr 
-                parser.AddExpression("definition", new Expression.Sequence(
-                    new Expression.TerminalChar('-'), Expression.WhiteSpaceStar, new Expression.VariableReference("name"),
+                //definition ::= name parameters? extension* s* "::=" s* expr 
+                parser.AddExpression("definition", new Expression.Sequence(new Expression.VariableReference("name"),
                     Expression.Repetition.Optional(new Expression.VariableReference("parameters")),
                     Expression.Repetition.ZeroOrMore(new Expression.VariableReference("extension")),
                     Expression.WhiteSpaceStar, new Expression.Terminal("::="),
                     Expression.WhiteSpaceStar, new Expression.VariableReference("expr")));
-                //- definition ::= '-' s* name parameters? extension* s* "::=" s* expr 
+                //definition ::= name parameters? extension* s* "::=" s* expr 
                 parser.AddSuccessProcess("definition", new SuccessProcess((result, cursor) =>
                 {
-                    // '-' s* name parameters? extension* s* "::=" s* expr 
+                    // name parameters? extension* s* "::=" s* expr 
                     var seq = ((Result.Sequence)result).Results;
-                    string name = (string)seq[2].Data!;
-                    // '-' s* name parameters? extension* s* "::=" s* expr 
+                    string name = (string)seq[0].Data!;
+                    // name parameters? extension* s* "::=" s* expr 
                     // expr 
-                    Expression expr = (Expression)seq[8].Data!;
-                    // '-' s* name parameters? extension* s* "::=" s* expr 
+                    Expression expr = (Expression)seq[6].Data!;
+                    // name parameters? extension* s* "::=" s* expr 
                     // parameters?
-                    var subSeq = ((Result.Sequence)seq[3]).Results;
+                    var subSeq = ((Result.Sequence)seq[1]).Results;
                     if (subSeq.Count > 0)
                     {
                         var (paramNames, paramExprs) = ((string[] paramNames, Expression[] paramExprs))subSeq[0].Data!;
@@ -525,9 +524,9 @@ namespace Ebnf_lib
                         if (paramExprs.Length > 0)
                             expr = new Expression.OptionalParams(expr, paramNames.Length, paramExprs);
                     }
-                    // '-' s* name parameters? extension* s* "::=" s* expr 
+                    // name parameters? extension* s* "::=" s* expr 
                     // extension*
-                    subSeq = ((Result.Sequence)seq[4]).Results;
+                    subSeq = ((Result.Sequence)seq[2]).Results;
                     foreach (var item in subSeq)
                     {
                         // extension
@@ -539,7 +538,7 @@ namespace Ebnf_lib
                             _ => throw new InvalidOperationException($"Invalid extension type '{type}'."),
                         };
                     }
-                    // '-' s* name parameters? extension* s* "::=" s* expr 
+                    // name parameters? extension* s* "::=" s* expr 
                     result.Data = (name, expr);
                 }));
                 //data = (string name, Expression expr)
@@ -570,24 +569,26 @@ namespace Ebnf_lib
                     }
                 }));
 
-                parser.MainVariable = "main";
-                //- main ::= ( s* (definition | comment) )* s* 
+                //main ::= s* ( (definition | comment) s* )*
                 parser.AddExpression("main", new Expression.Sequence(
-                    Expression.Repetition.ZeroOrMore(new Expression.Sequence(Expression.WhiteSpaceStar,
+                    Expression.WhiteSpaceStar,
+                    Expression.Repetition.ZeroOrMore(new Expression.Sequence(
                         new Expression.Choice(new Expression.VariableReference("definition"),
-                            new Expression.VariableReference("comment"))
-                    )), Expression.WhiteSpaceStar));
-                //- main ::= ( s* (definition | comment) )* s* 
+                            new Expression.VariableReference("comment")),
+                        Expression.WhiteSpaceStar
+                    ))
+                ));
+                //main ::= s* ( (definition | comment) s* )*
                 parser.AddSuccessProcess("main", new SuccessProcess((result, cursor) =>
                 {
-                    // ( s* (definition | comment) )* s* 
+                    // s* ( (definition | comment) s* )*
                     var seq = ((Result.Sequence)result).Results;
-                    // ( s* (definition | comment) )*
-                    seq = ((Result.Sequence)seq[0]).Results;
+                    // ( (definition | comment) s* )*
+                    seq = ((Result.Sequence)seq[1]).Results;
                     result.Data = seq.Select(x =>
                     {
-                        // s* (definition | comment)
-                        return ((Result.Sequence)x).Results[1].Data;
+                        // (definition | comment) s*
+                        return ((Result.Sequence)x).Results[0].Data;
                     }).Where(x => x is not null).Cast<(string, Expression)>();
                     if (!cursor.EndOfString) result.Success = false;
                 }));
@@ -596,11 +597,11 @@ namespace Ebnf_lib
                 {
                     if (result.ErrorMessage is null)
                     {
-                        if (!((IEnumerable<(string, Expression)>)result.Data!).Any())
+                        if (result.Data is not null && ((List<(string, Expression)>)result.Data).Count == 0)
                             //TODO: better error message
                             result.ErrorMessage =
-                                $"- Expected a definition starting with '-' or a comment starting with '#'.\n" +
-                                $"  (definition ::= '-' name \"::=\" expr)\n" +
+                                $"- Expected a definition starting without '-' or a comment starting with '#'.\n" +
+                                $"  (definition ::= name \"::=\" expr)\n" +
                                 $"  Context: {result.GetLast().GetContext()}";
                         else
                         {
@@ -612,15 +613,8 @@ namespace Ebnf_lib
                     }
                 }));
 
-                /*
-                    // Zweite Alternative: csl(name s* '=' s* expr1) s* ';' s* expr
-                    // seq[0].Data = (string[], Expression[]) aus csl-SuccessProcess
-                    // seq[^1].Data = expr
-                    // Aber: new Expression.Application(tmp, paramExprs) – Application erwartet
-                    // dass tmp eine Lambda ist, aber paramExprs sind die Default-Werte, nicht die Argumente
-                 */
 
-                //- lambda ::= csl(name s* '=' s* expr) s* ';' s* expr | ( parameters | name ) s* "-->" s* expr 
+                //lambda ::= csl(name s* '=' s* expr) s* ';' s* expr | ( parameters | name ) s* "-->" s* expr 
                 parser.AddExpression("lambda", new Expression.Choice(
                     // csl(name s* '=' s* expr) s* ';' s* expr 
                     new Expression.Sequence(new Expression.Application(new Expression.VariableReference("csl"),
@@ -677,8 +671,8 @@ namespace Ebnf_lib
                         Expression.WhiteSpaceStar, new Expression.VariableReference("expr")
                     )
                 ));
-                //- lambda ::= ( parameters | name ) s* "-->" s* expr | csl(name s* '=' s* expr) s* ';' s* expr 
-                // (string[] paramNames, Expression[] paramExprs) s* (';'|"-->") s* expr
+                //lambda ::= ( parameters | name ) s* "-->" s* expr | csl(name s* '=' s* expr) s* ';' s* expr 
+                //(string[] paramNames, Expression[] paramExprs) s* (';'|"-->") s* expr
                 parser.AddSuccessProcess("lambda", new SuccessProcess((result, cursor) =>
                 {
                     var seq = ((Result.Sequence)result).Results;
@@ -697,12 +691,12 @@ namespace Ebnf_lib
                     result.Data = tmp;
                 }));
 
-                //- expr ::= expr1 | lambda 
+                //expr ::= expr1 | lambda 
                 parser.AddExpression("expr", new Expression.Choice(
                     new Expression.VariableReference("expr1"),
                     new Expression.VariableReference("lambda")));
 
-                //- expr1 ::= expr2 ( s* '|' s* expr2 )*
+                //expr1 ::= expr2 ( s* '|' s* expr2 )*
                 parser.AddExpression("expr1", new Expression.Sequence(
                     new Expression.VariableReference("expr2"),
                     Expression.Repetition.ZeroOrMore(new Expression.Sequence(
@@ -710,7 +704,7 @@ namespace Ebnf_lib
                         new Expression.VariableReference("expr2")
                     ))
                 ));
-                //- expr1 ::= expr2 ( s* '|' s* expr2 )*
+                //expr1 ::= expr2 ( s* '|' s* expr2 )*
                 parser.AddSuccessProcess("expr1", new SuccessProcess((result, cursor) =>
                 {
                     // expr2 ( s* '|' s* expr2 )*
@@ -734,14 +728,22 @@ namespace Ebnf_lib
                     result.Data = new Expression.Choice(ls);
                 }));
 
-                //- expr2 ::= expr3 ( s+ expr3 )*
+                //expr2 ::= expr3 ( s+ expr3 notDef )*
                 parser.AddExpression("expr2", new Expression.Sequence(
                     new Expression.VariableReference("expr3"),
                     Expression.Repetition.ZeroOrMore(new Expression.Sequence(
-                        Expression.WhiteSpacePlus, new Expression.VariableReference("expr3")
+                        Expression.WhiteSpaceLinePlus, new Expression.VariableReference("expr3"),
+                        new Expression((@this, cursor) =>
+                        {
+                            int cpy = cursor.Position;
+                            while (!cursor.EndOfString && char.IsWhiteSpace(cursor.CurrentChar)) cursor++;
+                            bool error = cursor.Source.Length - cursor.Position >= 3 && cursor.Source.Substring(cursor.Position, 3) == "::=";
+                            cursor.Position = cpy;
+                            return new Result(@this, cursor.CreateEmptySection()) { Success = !error };
+                        })
                     ))
                 ));
-                //- expr2 ::= expr3 ( s+ expr3 )*
+                //expr2 ::= expr3 ( s+ expr3 notDef )*
                 parser.AddSuccessProcess("expr2", new SuccessProcess((result, cursor) =>
                 {
                     // expr3 ( s+ expr3 )*
@@ -765,14 +767,14 @@ namespace Ebnf_lib
                     result.Data = new Expression.Sequence(ls);
                 }));
 
-                //- expr3 ::= expr4 (postfix | extension)*
+                //expr3 ::= expr4 (postfix | extension)*
                 parser.AddExpression("expr3", new Expression.Sequence(
                     new Expression.VariableReference("expr4"),
                     Expression.Repetition.ZeroOrMore(new Expression.Choice(
                         new Expression.VariableReference("postfix"), new Expression.VariableReference("extension")
                     ))
                 ));
-                //- expr3 ::= expr4 (postfix | extension)*
+                //expr3 ::= expr4 (postfix | extension)*
                 parser.AddSuccessProcess("expr3", new SuccessProcess((result, cursor) =>
                 {
                     // expr4 (postfix | extension)*
@@ -802,12 +804,12 @@ namespace Ebnf_lib
                     result.Data = expr;
                 }));
 
-                //- expr4 ::= expr5 arguments?
+                //expr4 ::= expr5 arguments?
                 parser.AddExpression("expr4", new Expression.Sequence(
                     new Expression.VariableReference("expr5"),
                     Expression.Repetition.Optional(new Expression.VariableReference("arguments"))
                 ));
-                //- expr4 ::= expr5 arguments?
+                //expr4 ::= expr5 arguments?
                 parser.AddSuccessProcess("expr4", new SuccessProcess((result, cursor) =>
                 {
                     // expr5 arguments?
@@ -824,7 +826,7 @@ namespace Ebnf_lib
                     result.Data = new Expression.Application(expr, args);
                 }));
 
-                //- expr5 ::= '(' s* expr s* ')' | atomic 
+                //expr5 ::= '(' s* expr s* ')' | atomic 
                 parser.AddExpression("expr5", new Expression.Choice(
                     new Expression.Sequence(new Expression.TerminalChar('('), Expression.WhiteSpaceStar,
                         new Expression.VariableReference("expr"),
@@ -838,41 +840,40 @@ namespace Ebnf_lib
                     new Expression.VariableReference("atomic")
                 ));
 
-                //- atomic ::= Terminal | TerminalChar | CharacterClass | Variable 
+                //atomic ::= Terminal | TerminalChar | CharacterClass | Variable 
                 parser.AddExpression("atomic", new Expression.Choice(
                     new Expression.VariableReference("terminal"), new Expression.VariableReference("terminalChar"),
                     new Expression.VariableReference("characterClass"), new Expression.VariableReference("variable")
                 ));
 
-
                 return parser;
             }
             /*
-             * - postfix ::= [*+?] | '{' s* nat s* ( ',' s* nat? s* )? '}'
-             * - extension ::= [/!] name 
-             * - comment ::= '#' ~[\n]* 
+             * postfix ::= [*+?] | '{' s* nat s* ( ',' s* nat? s* )? '}'
+             * extension ::= [/!] name 
+             * comment ::= '#' ~[\n]* 
              * 
-             * - csl(arg) ::= arg ( s* ',' s* arg )*
-             * - arguments ::= '(' ( s* csl(expr) s* )? ')'
-             * - parameters ::= '(' ( s* csl(name) s* ( '=' s* expr s* ( ',' s* name s* '=' s* expr s* )* )? )? ')'
+             * csl(arg) ::= arg ( s* ',' s* arg )*
+             * arguments ::= '(' ( s* csl(expr) s* )? ')'
+             * parameters ::= '(' ( s* csl(name) s* ( '=' s* expr s* ( ',' s* name s* '=' s* expr s* )* )? )? ')'
              * 
-             * - definition ::= '-' s* name parameters? extension* s* "::=" s* expr 
-             * - main ::= ( s* (definition | comment) )* s* 
+             * definition ::= name parameters? extension* s* "::=" s* expr 
+             * main ::= s* ( (definition | comment) s* )*
              * 
-             * - lambda ::= csl(name s* '=' s* expr) s* ';' s* expr | ( parameters | name ) s* "-->" s* expr 
-             * - expr ::= expr1 | lambda 
-             * - expr1 ::= expr2 ( s* '|' s* expr2 )*
-             * - expr2 ::= expr3 ( s+ expr3 )*
-             * - expr3 ::= expr4 (postfix | extension)*
-             * - expr4 ::= expr5 arguments?
-             * - expr5 ::= '(' s* expr s* ')' | atomic 
-             * - atomic ::= Terminal | TerminalChar | CharacterClass | Variable 
+             * lambda ::= csl(name s* '=' s* expr) s* ';' s* expr | ( parameters | name ) s* "-->" s* expr 
+             * expr ::= expr1 | lambda 
+             * expr1 ::= expr2 ( s* '|' s* expr2 )*
+             * expr2 ::= expr3 ( s+ expr3 notDef )*
+             * expr3 ::= expr4 (postfix | extension)*
+             * expr4 ::= expr5 arguments?
+             * expr5 ::= '(' s* expr s* ')' | atomic 
+             * atomic ::= Terminal | TerminalChar | CharacterClass | Variable 
              * 
-             * - Terminal ::= '"' OpenChar* '"'
-             * - TerminalChar ::= '\'' OpenChar '\''
-             * - CharacterClass ::= '~'? '[' OpenChar* ']'
-             * - Variable ::= name
-             * - name ::= [a-zA-Z] [a-zA-Z0-9_]*
+             * Terminal ::= '"' OpenChar* '"'
+             * TerminalChar ::= '\'' OpenChar '\''
+             * CharacterClass ::= '~'? '[' OpenChar* ']'
+             * Variable ::= name
+             * name ::= [a-zA-Z] [a-zA-Z0-9_]*
              */
         }
         public class Variable(string name)
@@ -1137,8 +1138,7 @@ namespace Ebnf_lib
                     return (Terminal)result.Data!;
                 }
 
-                public override string ToString() =>
-                    $"\"{string.Concat(Value.Select(c => StrHelper.CharAsString(c, x => x == '"')))}\"";
+                public override string ToString() => $"\"{StrHelper.StringAsString(Value)}\"";
             }
             public class TerminalChar : Expression
             {
@@ -1206,7 +1206,6 @@ namespace Ebnf_lib
                 public override string ToString() => Description ??= ToString(Predicate);
                 public static string ToString(Func<char, bool> predicate)
                 {
-
                     List<char> digits = [], lowerLetters = [], upperLetters = [], others = [];
                     List<char> n_digits = [], n_lowerLetters = [], n_upperLetters = [], n_others = [];
                     for (char c = (char)0; c < 128; c++)
@@ -1587,6 +1586,10 @@ namespace Ebnf_lib
                 };
             public Expression(Func<StringCursor, Result> parseFunc) => ParseFunc = ToParseFunc(parseFunc);
             public Expression(Func<StringCursor, Expression[]?, Result> parseFunc) => ParseFunc = parseFunc;
+            public Expression(Func<Expression, StringCursor, Result> parseFunc) =>
+                ParseFunc = ToParseFunc(cursor => parseFunc(this, cursor));
+            public Expression(Func<Expression, StringCursor, Expression[]?, Result> parseFunc) =>
+                ParseFunc = (cursor, args) => parseFunc(this, cursor, args);
             public static Expression FromEbnf(string code)
             {
                 StringCursor cursor = code;
@@ -1605,7 +1608,7 @@ namespace Ebnf_lib
             };
             public Expression Extend(SuccessProcess successProcess) => new PostProcessingExpression(this, successProcess);
             public Expression Extend(ErrorProcess errorProcess) => new PostProcessingExpression(this, errorProcess);
-            
+
             public virtual Expression? GetSourceExpression() => this;
             public virtual IEnumerable<VariableReference> GetVariableReferences() => [];
             public IDictionary<string, ReferenceType> GetNullReferences(
@@ -1887,6 +1890,9 @@ namespace Ebnf_lib
             public static Expression WhiteSpace { get; } = new CharacterClass(char.IsWhiteSpace);
             public static Expression WhiteSpaceStar { get; } = Repetition.ZeroOrMore(WhiteSpace);
             public static Expression WhiteSpacePlus { get; } = Repetition.OneOrMore(WhiteSpace);
+            public static Expression WhiteSpaceLine { get; } = new CharacterClass(c => char.IsWhiteSpace(c) && c != '\n');
+            public static Expression WhiteSpaceLineStar { get; } = Repetition.ZeroOrMore(WhiteSpaceLine);
+            public static Expression WhiteSpaceLinePlus { get; } = Repetition.OneOrMore(WhiteSpaceLine);
             public static Expression EndOfString { get; } = new(cursor =>
                 new Result(EndOfString!, cursor.CreateEmptySection()) { Success = cursor.EndOfString }
             );
