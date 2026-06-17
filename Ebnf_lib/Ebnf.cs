@@ -2,6 +2,15 @@
 using System.Globalization;
 using StringHelper_lib;
 
+/*
+ * Developer: Simon Haas
+ * 
+ * How to use:
+ * create a Parser: Ebnf.Parser
+ * Add parsing-logic: Ebnf.Parser().AddEbnfCode
+ * Parse input: Ebnf.Parser().Parse
+ */
+
 namespace Ebnf_lib
 {
     /// <summary>
