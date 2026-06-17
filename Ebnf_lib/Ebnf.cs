@@ -15,8 +15,6 @@ namespace Ebnf_lib
 {
     /// <summary>
     /// The EBNF-syntax is explained in: EbnfSyntax.md<br/>
-    /// Developer-Path:
-    /// @"C:\Users\User\source\repos\Ebnf_program\EbnfSyntax.md"
     /// </summary>
     public static class Ebnf
     {
