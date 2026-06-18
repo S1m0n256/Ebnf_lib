@@ -1,2 +1,4 @@
 - The syntax of the EBNF-Code is explained in "Ebnf_lib/EbnfSyntax-v1.md".
+- Since the preview does not format the code correctly, "Ebnf_lib/EbnfSyntax-v1.md" is also available as PDF for better readability.
 - Simple code-usage is explained in "Ebnf_lib/Ebnf.cs".
+- Code-examples can be found in the example folder. (Note: The StringHelper_lib is not included yet. Which is needed for the Ebnf_lib.)
